@@ -1,0 +1,273 @@
+---
+title: "Secret Behind Lyrics in Different Genres"
+author: "Shenghan Chen-sc4615"
+date: "1/31/2020"
+output: html_document
+---
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#load libraries
+library(tidytext)
+library(textdata)
+library(dplyr)
+library(stringr)
+library(plotly)
+library(DT)
+library(tm)
+library(data.table)
+library(scales)
+library(wordcloud2)
+library(gridExtra)
+library(ngram)
+library(tidyr)
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud)
+library(reshape2)
+library(tidyverse)
+library(shiny) 
+library(rvest)
+library(tibble)
+library(sentimentr)
+library(gplots)
+library(syuzhet)
+library(factoextra)
+library(beeswarm)
+library(RANN)
+library(topicmodels)
+library(knitr) 
+library(kableExtra) 
+library(formattable)
+library(widyr)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#load the processed lyrics data
+processed_data = load('../output/processed_lyrics.RData') 
+```
+
+## Introduction
+
+Lyric is the soul of a song, which is why we can always share the same feelings when listening music. This blog is aimed to figure out the relationship between lyrics and genres, and also the emtions behind different genres.
+
+## Overview
+
+First, we should have an overview of our dataset. There are 125715 songs and 12 genres in the dataset. Valid date is from 1968 to 2016. Genres include Rock, R&B, Pop, Metal, Hip-Hop, Country, Electronic and etc.
+
+## Number of songs released over years
+
+The bar chart shows the number of songs released over years. Different genres are represented by different colors. In 2005, there is a burst in the number of songs. From then on, it decreases rapidly and roughly stable since 2010. In addition, Rock has the longest history and occupies a relatively high proportion in each year. Pop music is also very popular during these years.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dt_lyrics %>%
+  filter(year > 1950 ) %>%
+  group_by(year, genre) %>%
+  summarise(number_of_songs = n()) %>%
+  arrange(number_of_songs)%>%
+  ggplot() + 
+  geom_bar(aes(x = year, y = number_of_songs, fill = genre), stat = "identity")  +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        panel.grid.minor = element_blank()) +
+  ggtitle("Released Songs") +
+  labs(x = "year", y = "Song Count")
+
+```
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+# data cleaning
+data("stop_words")
+dt_lyrics_filtered = dt_lyrics %>%
+  unnest_tokens(word, lyrics) %>%
+  anti_join(stop_words) %>%
+  distinct() %>%
+  filter(nchar(word) > 3)
+
+```
+
+## Word count of each genre
+
+We can get a general idea about word count of each genre from the boxplot. Hip-Hop has the largest word count among all the genres, which may be because Hip-Hop always has the rap section that contains lots of words.
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+# words count
+full_word_count = dt_lyrics_filtered %>%
+  group_by(song,year,genre) %>%
+  summarise(num_words = n()) %>%
+  arrange(desc(num_words)) 
+
+ave_lyrics = group_by(full_word_count,genre)
+
+ggplot(ave_lyrics, aes(x = genre, y = num_words, fill = genre),color="red") +
+    ylab("Word count") + 
+    xlab("genre") +
+    labs(title="Word Count Distribution") +
+    geom_boxplot()+
+    ylim(0,500)
+```
+
+## Word frequence in 5 popular genres
+
+Then I rank the top 3 popular genres along the history, which results that Rock music has a absolute advantage over all other genres in the number of songs. Also, top 5 popular genres are Rock, Pop, Metal, Hip-Hop and Country. 
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+popularity= dt_lyrics %>%
+  filter(year > 1950 ) %>%
+  group_by(genre) %>%
+  summarise(number_of_songs = n()) %>%
+  arrange(desc(number_of_songs))%>%
+  top_n(5)
+popularity
+```
+
+We can have a closer look at the word frequence in these 5 popular genres through wordcloud. In these 5 genres, most of them share the same top words, like "love", "life" and "time", which are positive. On the contrary, we can not deny that Hip-Hop music has some negative words like "shit", "fuck", etc.
+
+# Rock
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dt_lyrics_rock <- dt_lyrics_filtered %>%
+  filter(genre=="Rock")%>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 50,min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,colors=brewer.pal(9,"Reds")))
+```
+
+# Pop
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+dt_lyrics_pop <- dt_lyrics_filtered %>%
+  filter(genre=="Pop")%>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 50,min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,colors=brewer.pal(9,"PuRd")))
+
+```
+
+# Metal
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+dt_lyrics_metal <- dt_lyrics_filtered %>%
+  filter(genre=="Metal")%>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 50,min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,colors=brewer.pal(9,"Oranges")))
+```
+
+
+# Hip-Hop
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+dt_lyrics_metal <- dt_lyrics_filtered %>%
+  filter(genre=="Hip-Hop")%>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 50,min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,colors=brewer.pal(9,"Blues")))
+```
+
+# Country
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+dt_lyrics_metal <- dt_lyrics_filtered %>%
+  filter(genre=="Country")%>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 50,min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,colors=brewer.pal(9,"Greens")))
+```
+
+## Popular words via TF-IDF approach 
+
+Sometimes, frequence can not represent the importance of the words. So we introduce TF-IDF approach trying to figure out the popular words in different genres. We can see the result as followed. Through TF-IDF method, we can get some symbolic words in each genres, like "cutee" in Electronic, "memories" in Country, "Romance" in Jazz, etc. TF-IDF can help us to find the more characteristic lyrics in different genres.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# set up undesirable words dataset
+undesirable_words = c( "theres", "yeah", "baby", "alright", "wanna", "gonna", "chorus", "verse", "whoa", "gotta", "make",
+                      "oh", "4", "ooh", "uurh","poompoom", "3121",  " ai ", " ca",    "la ", "hey", " na ", " da ", " uh ", 
+                      " tin ", "  ll", "transcription", "repeats","nigga","niggas","yeah")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+popular_tfidf_words <- dt_lyrics %>%
+  unnest_tokens(stemmedwords, lyrics) %>%
+  distinct() %>%
+  filter(!stemmedwords %in% undesirable_words) %>%
+  filter(nchar(stemmedwords) > 3) %>%
+  count(genre, stemmedwords, sort = TRUE) %>%
+  ungroup() %>%
+  bind_tf_idf(stemmedwords, genre, n)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+top_popular_tfidf_words <- popular_tfidf_words %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(stemmedwords = factor(stemmedwords, levels = rev(unique(stemmedwords)))) %>%
+  group_by(genre) %>% 
+  slice(seq_len(5)) %>%
+  ungroup() %>%
+  arrange(genre, tf_idf) %>%
+  mutate(row = row_number())
+
+top_popular_tfidf_words %>%
+  ggplot(aes(x = row, tf_idf, 
+             fill = genre)) +
+    geom_col(show.legend = NULL) +
+    labs(x = NULL, y = "TF-IDF") + 
+    ggtitle("Important Words through TF-IDF") +
+    theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_blank(), 
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "none")+ 
+    facet_wrap(~genre, ncol = 3, scales = "free") +
+    scale_x_continuous(   
+      breaks = top_popular_tfidf_words$row, 
+      labels = top_popular_tfidf_words$stemmedwords) +
+    coord_flip()
+```
+
+## Sentiment analysis
+
+Finally, I conduct a sentiment analysis on these lyrics in different genres. When the value is above 0, it represents positive. When the value is below 0, it represents negative. From these plots, we obviously find that Country music is positive which is consistent with our daily experience. Country music often conveys some postitive feelings and shares some happy memories that can make us feel relaxed. Hip-Hop and Metal shows evidently negative. The result conforms to our recognization about their unique culture which is kind of more aggressive and more intense compared to other genres. Pop music shows evidently positive. Pop music has more positve feelings that are easy to be accepted by those audience which is why it often has a relatively large popularity.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+
+dt_lyrics_sentiment <- dt_lyrics_filtered %>%
+  inner_join(get_sentiments("nrc")) %>%
+  count(genre, index = id %/% 1000, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ ggplot(dt_lyrics_sentiment, aes(index, sentiment, fill = genre)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~genre, ncol = 4, scales = "free_y")
+```
+
+## Summary
+
+From our analysis results, we can get some conclusions:
+
+1. Rock music has the longest history and always occupies a dominant position in music history.
+
+2. Hip-Hop has the longest lyrics among all the genres.
+
+3. Lyrics in Country, Jazz and Pop are evidently positive. However, lyrics in Hip-Hop, Metal shows obviously negative.
+
+
+
+
+
+
+
